@@ -47,6 +47,7 @@ async def register_admin(
     user_name: str=Form(None),
     db=Depends(get_db)
 ):
+    
     ## Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
@@ -71,6 +72,27 @@ async def register_admin(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+#REGISTER NEW PATIENT
+@router.post("/patient/register")
+async def register_patient(
+    name: str = Form(None),
+    dob: int=Form(None),
+    national_id: int=Form(None),
+    tax_number: int=Form(None),
+    sex: bool=Form(None),
+    address: Optional[str]=Form(None),
+    email: EmailStr= Form(None),
+    phone_num: int=Form(None),
+    password: str=Form(None),
+    user_name: str=Form(None),
+    user: str = Depends(get_current_user),
+    db=Depends(get_db)
+):
+    ## Check if user.user_type == 4, continue if yes, if not raise error 401
+    raise HTTPException(status_code=500, detail="Internal server error")
+    
 
 ## LOGIN SETUP
 class Token(BaseModel):
