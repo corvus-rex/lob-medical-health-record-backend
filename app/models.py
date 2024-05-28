@@ -38,12 +38,11 @@ class Admin(Base):
     name = Column(String)
     dob = Column(DateTime)
     national_id = Column(Integer)
+    tax_number = Column(Integer)
     sex = Column(Boolean)
     phone_num = Column(Integer)
     address = Column(String)
-    alias = Column(String)
-    relative_phone = Column(Integer)
-
+    
 class Insurance(Base):
     __tablename__ = 'insurance'
     user_id = Column(UUID)

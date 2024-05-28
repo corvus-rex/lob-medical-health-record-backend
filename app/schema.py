@@ -11,7 +11,7 @@ class User(BaseModel):
     class Config:
         orm_mode = True
 
-class Patient(BaseModel):
+class Admin(BaseModel):
     admin_id: str
     user_id: str
     name: str
