@@ -9,7 +9,7 @@ import os
 from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
 
-from routers import auth, media_unit, data_query
+from routers import auth, data_query
 
 load_dotenv('.env')
 
@@ -29,7 +29,6 @@ async def root():
     return {"message": "hello world"}
 
 app.include_router(auth.router)
-app.include_router(media_unit.router)
 app.include_router(data_query.router)
 
 if __name__ == '__main__':

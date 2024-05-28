@@ -14,9 +14,6 @@ class User(Base):
     user_email = Column(String, index=True)
     password = Column(String)  
 
-    templates = relationship("Patient", back_populates="Patient")
-    templates = relationship("Admin", back_populates="Admin")
-
 class Patient(Base):
     __tablename__ = 'patient'
     patient_id  = Column(UUID, primary_key=True, index=True)
@@ -31,6 +28,9 @@ class Patient(Base):
     relative_phone = Column(Integer)
     insurance_id = Column(UUID, ForeignKey('insurance.insurance_id'))
 
+    patient = relationship("User")
+    insurance = relationship("Insurance")
+
 class Admin(Base):
     __tablename__ = 'admin'
     admin_id  = Column(UUID, primary_key=True, index=True)
@@ -42,10 +42,10 @@ class Admin(Base):
     sex = Column(Boolean)
     phone_num = Column(Integer)
     address = Column(String)
-    
+
+    admin = relationship("User")
+
 class Insurance(Base):
     __tablename__ = 'insurance'
-    user_id = Column(UUID)
-    insurancename = Column(String)
-
-    templates = relationship("Patient", back_populates="Patient")
+    insurance_id = Column(UUID, primary_key=True, index=True)
+    insurance_name = Column(String)
