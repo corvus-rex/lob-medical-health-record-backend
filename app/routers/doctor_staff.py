@@ -134,7 +134,7 @@ async def register_staff(
             historical = DynamicModel(**data_dict).json()
         
         user = User(user_id=user_id, user_name=user_name, user_email=email, password=password_hash, user_type=3)
-        staff = Staff(doctor_id=staff_id, user_id=user_id, 
+        staff = MedicalStaff(staff_id=staff_id, user_id=user_id, 
                       name=name, dob=dob_datetime, 
                       national_id=national_id, tax_number=tax_number,
                       license_num=license_num, historical=historical,
@@ -223,7 +223,7 @@ async def register_doctor_polyclinic(
         raise HTTPException(status_code=400, detail="This doctor ID does not exist")
     
     try:        
-        doctor_poly = DoctorPoly(poly_id=poly_id, doctor_id=doctor_id)
+        doctor_poly = PolyclinicDoctor(poly_id=poly_id, doctor_id=doctor_id)
         db.add(doctor_poly)
         db.doctor_poly()
         db.refresh(doctor_poly)
@@ -251,12 +251,12 @@ async def register_doctor_polyclinic(
         raise HTTPException(status_code=400, detail="This laboratory ID does not exist")
 
     ## Check if doctor_id exist
-    existing_doctor = db.query(Staff).filter(str(Staff.staff_id) == staff_id).first()
-    if not existing_doctor:
+    existing_staff = db.query(MedicalStaff).filter(str(MedicalStaff.staff_id) == staff_id).first()
+    if not existing_staff:
         raise HTTPException(status_code=400, detail="This staff ID does not exist")
     
     try:        
-        staff_laboratory = StaffLaboratory(lab_id=lab_id, staff_id=staff_id)
+        staff_laboratory = LaboratoryStaff(lab_id=lab_id, staff_id=staff_id)
         db.add(staff_laboratory)
         db.doctor_poly()
         db.refresh(staff_laboratory)
