@@ -97,7 +97,7 @@ class MedicalStaff(Base):
 
     user = relationship("User", back_populates="medical_staff")
     lab_report = relationship("LabReport", back_populates="staff")
-    clinical_entrie = relationship("ClinicalEntry", back_populates="staff")
+    clinical_entry = relationship("ClinicalEntry", back_populates="staff")
     interest = relationship("PatientInterest", back_populates="staff")
     laboratory_staff = relationship("LaboratoryStaff", back_populates="staff")
 
