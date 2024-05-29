@@ -120,7 +120,7 @@ class Polyclinic(Base):
     medical_note = relationship("MedicalNote", back_populates="polyclinic")
 
 class PolyclinicDoctor(Base):
-    __tablename__ = 'polyclinic_doctor'
+    __tablename__ = 'doctor_poly'
     doctor_id = Column(UUID, ForeignKey('doctor.doctor_id'), primary_key=True)
     poly_id = Column(UUID, ForeignKey('polyclinic.poly_id'), primary_key=True)
 

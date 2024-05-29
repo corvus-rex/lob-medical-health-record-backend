@@ -225,22 +225,21 @@ async def register_doctor_polyclinic(
     if user.user_type != 1:
         raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new doctor to polyclinic")
 
-    ## Check if poly_id exist
-    existing_poly = db.query(Polyclinic).filter(str(Polyclinic.poly_id) == poly_id).first()
-    if not existing_poly:
-        raise HTTPException(status_code=400, detail="This polyclinic ID does not exist")
-
     ## Check if doctor_id exist
-    existing_doctor = db.query(Doctor).filter(str(Doctor.doctor_id) == doctor_id).first()
+    existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
     if not existing_doctor:
         raise HTTPException(status_code=400, detail="This doctor ID does not exist")
+    ## Check if poly_id exist
+    existing_poly = db.query(Polyclinic).filter(Polyclinic.poly_id == poly_id).first()
+    if not existing_poly:
+        raise HTTPException(status_code=400, detail="This polyclinic ID does not exist")
     
     try:        
-        doctor_poly = PolyclinicDoctor(poly_id=poly_id, doctor_id=doctor_id)
-        db.add(doctor_poly)
-        db.doctor_poly()
-        db.refresh(doctor_poly)
-        return doctor_poly
+        polyclinic_doctor = PolyclinicDoctor(poly_id=poly_id, doctor_id=doctor_id)
+        db.add(polyclinic_doctor)
+        db.commit()
+        db.refresh(polyclinic_doctor)
+        return polyclinic_doctor
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -248,7 +247,7 @@ async def register_doctor_polyclinic(
 
 #REGISTER STAFF TO LABORATORY
 @router.post("/laboratory/staff/register")
-async def register_doctor_polyclinic(
+async def register_staff_laboratory(
     lab_id: str=Form(None),
     staff_id: str=Form(None),
     user: str = Depends(get_current_user),
