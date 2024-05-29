@@ -113,7 +113,7 @@ def authenticate_user(user_email: str, password: str, db: Session):
     user = db.query(User).filter(User.user_email == user_email).first()
     if not user:
         return False
-    if not verify_password(password, user.password_hash):
+    if not verify_password(password, user.password):
         return False
     return user
 
@@ -122,11 +122,11 @@ async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db=Depends(get_db)
 ):
-    user = authenticate_user(form_data.user_email, form_data.password, db)
+    user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect user email or password",
+            detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(hours=int(os.environ['ACCESS_TOKEN_EXPIRE_HOURS']))
