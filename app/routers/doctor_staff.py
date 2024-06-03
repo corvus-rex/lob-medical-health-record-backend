@@ -1,6 +1,6 @@
 from typing import Annotated, Optional, Dict
 from fastapi import Depends, FastAPI, HTTPException, status, Form, UploadFile
-from pydantic import BaseModel, EmailStr, constr, Field
+from pydantic import BaseModel, EmailStr, constr, Field, create_model
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_sqlalchemy import DBSessionMiddleware, db
 from fastapi import APIRouter
@@ -45,7 +45,8 @@ async def register_doctor(
     dob: int=Form(None),
     national_id: int=Form(None),
     phone_num: int=Form(None),
-    tax_number: int=Form(None),
+    tax_num: int=Form(None),
+    pob: str=Form(None),
     license_num: int=Form(None),
     historical: Dict | str = Form(None),
     address: Optional[str]=Form(None),
@@ -68,21 +69,26 @@ async def register_doctor(
         password_hash = get_password_hash(password)
         
         if isinstance(historical, str):
+            # Convert string to dictionary
             data_dict = json.loads(historical)
-            # Create a dynamic Pydantic model
-            class DynamicModel(BaseModel):
-                pass
-            for key, value in data_dict.items():
-                DynamicModel.__annotations__[key] = type(value)
-            
-            historical = DynamicModel(**data_dict).json()
-        
+        else:
+            # Assume it's already a dictionary
+            data_dict = historical
+
+        dynamic_fields = {key: (type(value), ...) for key, value in data_dict.items()}
+
+        # Create a dynamic model class
+        DynamicModel = create_model('DynamicModel', **dynamic_fields)
+
+        # Create an instance of the dynamic model
+        dynamic_instance = DynamicModel(**data_dict).json()
+
         user = User(user_id=user_id, user_name=user_name, user_email=email, password=password_hash, user_type=2)
         doctor = Doctor(doctor_id=doctor_id, user_id=user_id, 
                       name=name, dob=dob_datetime, 
-                      national_id=national_id, tax_number=tax_number,
-                      license_num=license_num, historical=historical,
-                      phone_num=phone_num, sex=sex, address=address)
+                      national_id=national_id, tax_num=tax_num,
+                      license_num=license_num, historical=dynamic_instance,
+                      pob=pob, phone_num=phone_num, sex=sex, address=address)
         db.add(user)
         db.add(doctor)
         db.commit()
@@ -99,9 +105,10 @@ async def register_doctor(
 async def register_staff(
     name: str = Form(None),
     dob: int=Form(None),
+    pob: str=Form(None),
     national_id: int=Form(None),
     phone_num: int=Form(None),
-    tax_number: int=Form(None),
+    tax_num: int=Form(None),
     license_num: int=Form(None),
     historical: Dict | str = Form(None),
     address: Optional[str]=Form(None),
@@ -124,20 +131,26 @@ async def register_staff(
         password_hash = get_password_hash(password)
         
         if isinstance(historical, str):
+            # Convert string to dictionary
             data_dict = json.loads(historical)
-            # Create a dynamic Pydantic model
-            class DynamicModel(BaseModel):
-                pass
-            for key, value in data_dict.items():
-                DynamicModel.__annotations__[key] = type(value)
-            
-            historical = DynamicModel(**data_dict).json()
+        else:
+            # Assume it's already a dictionary
+            data_dict = historical
+
+        dynamic_fields = {key: (type(value), ...) for key, value in data_dict.items()}
+
+        # Create a dynamic model class
+        DynamicModel = create_model('DynamicModel', **dynamic_fields)
+
+        # Create an instance of the dynamic model
+        dynamic_instance = DynamicModel(**data_dict).json()
+
         
         user = User(user_id=user_id, user_name=user_name, user_email=email, password=password_hash, user_type=3)
         staff = MedicalStaff(staff_id=staff_id, user_id=user_id, 
-                      name=name, dob=dob_datetime, 
-                      national_id=national_id, tax_number=tax_number,
-                      license_num=license_num, historical=historical,
+                      name=name, dob=dob_datetime, pob=pob,
+                      national_id=national_id, tax_num=tax_num,
+                      license_num=license_num, historical=dynamic_instance,
                       phone_num=phone_num, sex=sex, address=address)
         db.add(user)
         db.add(staff)
@@ -212,22 +225,21 @@ async def register_doctor_polyclinic(
     if user.user_type != 1:
         raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new doctor to polyclinic")
 
-    ## Check if poly_id exist
-    existing_poly = db.query(Polyclinic).filter(str(Polyclinic.poly_id) == poly_id).first()
-    if not existing_poly:
-        raise HTTPException(status_code=400, detail="This polyclinic ID does not exist")
-
     ## Check if doctor_id exist
-    existing_doctor = db.query(Doctor).filter(str(Doctor.doctor_id) == doctor_id).first()
+    existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
     if not existing_doctor:
         raise HTTPException(status_code=400, detail="This doctor ID does not exist")
+    ## Check if poly_id exist
+    existing_poly = db.query(Polyclinic).filter(Polyclinic.poly_id == poly_id).first()
+    if not existing_poly:
+        raise HTTPException(status_code=400, detail="This polyclinic ID does not exist")
     
     try:        
-        doctor_poly = PolyclinicDoctor(poly_id=poly_id, doctor_id=doctor_id)
-        db.add(doctor_poly)
-        db.doctor_poly()
-        db.refresh(doctor_poly)
-        return doctor_poly
+        polyclinic_doctor = PolyclinicDoctor(poly_id=poly_id, doctor_id=doctor_id)
+        db.add(polyclinic_doctor)
+        db.commit()
+        db.refresh(polyclinic_doctor)
+        return polyclinic_doctor
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -235,7 +247,7 @@ async def register_doctor_polyclinic(
 
 #REGISTER STAFF TO LABORATORY
 @router.post("/laboratory/staff/register")
-async def register_doctor_polyclinic(
+async def register_staff_laboratory(
     lab_id: str=Form(None),
     staff_id: str=Form(None),
     user: str = Depends(get_current_user),
