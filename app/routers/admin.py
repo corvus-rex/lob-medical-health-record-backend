@@ -33,51 +33,64 @@ ASSET_STORAGE = os.environ['ASSET_STORAGE']
 ## INITIALIZE ROUTER
 router = APIRouter()
 
-#REGISTER NEW USER
-@router.post("/user/new")
-async def register_user(
-    user_name: str = Form(None),
-    user_type: int = Form(None),
-    user_email: str = Form(None),
-    password: str = Form(None),
-    db=Depends(get_db)
-):
-    ## Check for duplicate email
-    existing_user = db.query(User).filter(User.user_email == user_email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    try:
-        user_id = str(uuid.uuid4())  # Generate a UUID for user_id
-        password_hash = get_password_hash(password)
-        
-        # Create a new user instance
-        new_user = User(
-            user_id=user_id,
-            user_name=user_name,
-            user_type=user_type,
-            user_email=user_email,
-            password=password_hash
-        )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return new_user
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Internal server error")
-    
-##VIEW ALL PATIENTS
+##GET LIST PATIENT
 @router.get("/patient/list")
-async def view_patient(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def view_patient(
+    # current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
     try:
-        if current_user.user_type != 1:
-            raise HTTPException(status_code=403, detail="Access forbidden")
+        # if current_user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
 
         patients = db.query(Patient).all()
         if not patients:
             raise HTTPException(status_code=404, detail="No patients found")
         return patients
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+#GET PATIENT DATA BY ID
+@router.get("/patient/{patient_id}")
+async def get_patient_by_id(patient_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        # Fetch patient data
+        patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        # Fetch medical record
+        medical_record = db.query(MedicalRecord).filter(MedicalRecord.patient_id == patient.patient_id).first()
+        if not medical_record:
+            medical_record = None 
+
+        # Fetch lab reports
+        lab_reports = []
+        if medical_record:
+            lab_reports = db.query(LabReport).filter(LabReport.record_id == medical_record.record_id).all()
+        else:
+            lab_reports = []
+
+        # Fetch medical notes
+        medical_notes = []
+        if medical_record:
+            medical_notes = db.query(MedicalNote).filter(MedicalNote.record_id == medical_record.record_id).all()
+        else:
+            medical_notes = []
+
+        # Fetch clinical entry
+        clinical_entries = []
+        if medical_record:
+            clinical_entries = db.query(ClinicalEntry).filter(ClinicalEntry.record_id == medical_record.record_id).all()
+        else:
+            clinical_entries = []
+
+        return {
+            'patient': patient,
+            'medical_record': medical_record,
+            'lab_report': lab_reports,
+            'medical_note': medical_notes,
+            'clinical_entry': clinical_entries
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 

@@ -9,7 +9,7 @@ import os
 from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
 
-from routers import auth, data_query, doctor_staff
+from routers import auth, data_query, doctor_staff, admin
 
 load_dotenv('.env')
 
@@ -31,6 +31,7 @@ async def root():
 app.include_router(auth.router)
 app.include_router(data_query.router)
 app.include_router(doctor_staff.router)
+app.include_router(admin.router)
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=8000)

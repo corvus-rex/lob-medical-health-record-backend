@@ -26,16 +26,15 @@ class Admin(BaseModel):
 
 class Patient(BaseModel):
     patient_id: str
-    patient_id: str
     user_id: str
     name: str
     dob: datetime
-    national_id: int
+    national_id: str
     sex: bool
-    phone_num: Optional[int]
+    phone_num: str
     address: Optional[str]
     alias: Optional[str]
-    relative_phone: Optional[int]
+    relative_phone: str
     insurance_id: Optional[str]
     class Config:
         orm_mode = True
@@ -122,7 +121,7 @@ class MedicalRecord(BaseModel):
     record_id: str
     patient_id: str
     created_date: datetime
-    last_edited: datetime
+    last_editted: datetime
 
     class Config:
         orm_mode = True

@@ -75,23 +75,65 @@ async def register_admin(
 
 
 #REGISTER NEW PATIENT
-@router.post("/patient/register")
+@router.post("/patient/new")
 async def register_patient(
     name: str = Form(None),
     dob: int=Form(None),
-    national_id: int=Form(None),
-    tax_number: int=Form(None),
-    sex: bool=Form(None),
-    address: Optional[str]=Form(None),
+    national_id: int = Form(None),
+    sex: bool = Form(None),
+    phone_num: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    alias: Optional[str] = Form(None),
+    relative_phone: Optional[str] = Form(None),
+    insurance_id: Optional[str] = Form(None),
     email: EmailStr= Form(None),
-    phone_num: int=Form(None),
     password: str=Form(None),
     user_name: str=Form(None),
-    user: str = Depends(get_current_user),
+    # user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):
+    
+    ## Check for duplicate email
+    existing_user = db.query(User).filter(User.user_email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    try:
+        user_id = str(uuid.uuid4())  # Generate a UUID for user_id
+        patient_id = str(uuid.uuid4()) # Generate a UUID for patient_id
+        dob_datetime = datetime.fromtimestamp(dob)
+        password_hash = get_password_hash(password)
+
+        user = User(user_id=user_id, 
+                    user_name=user_name, 
+                    user_email=email, 
+                    password=password_hash, 
+                    user_type=4)
+        
+        patient = Patient(patient_id=patient_id,
+                          user_id = user_id,
+                          name = name,
+                          dob = dob_datetime,
+                          national_id = national_id,
+                          sex = sex,
+                          phone_num = phone_num,
+                          address = address,
+                          alias = alias,
+                          relative_phone = relative_phone,
+                          insurance_id = insurance_id)
+        
+        db.add(user)
+        db.add(patient)
+        db.commit()
+        db.refresh(user)
+        db.refresh(patient)
+        return patient
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
     ## Check if user.user_type == 4, continue if yes, if not raise error 401
-    raise HTTPException(status_code=500, detail="Internal server error")
+    # raise HTTPException(status_code=500, detail="Internal server error")
     
 
 ## LOGIN SETUP
