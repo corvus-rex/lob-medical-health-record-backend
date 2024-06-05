@@ -39,56 +39,56 @@ ASSET_STORAGE = os.environ['ASSET_STORAGE']
 router = APIRouter()
 
 #REGISTER NEW DOCTOR
-@router.post("/doctor/register")
+@router.post("/doctor/new")
 async def register_doctor(
     name: str = Form(None),
-    dob: int=Form(None),
-    national_id: int=Form(None),
-    phone_num: int=Form(None),
-    tax_num: int=Form(None),
-    pob: str=Form(None),
-    license_num: int=Form(None),
-    historical: Dict | str = Form(None),
-    address: Optional[str]=Form(None),
-    sex: bool=Form(None),
-    email: EmailStr= Form(None),
-    password: str=Form(None),
-    user_name: str=Form(None),
-    db=Depends(get_db)
+    pob: str = Form(None),
+    dob: int = Form(None),
+    national_id: str = Form(None),
+    phone_num: str = Form(None),
+    tax_num: str = Form(None),
+    license_num: str = Form(None),
+    historical: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    sex: Optional[bool] = Form(None),
+    email: EmailStr = Form(None),
+    password: str = Form(None),
+    user_name: str = Form(None),
+    db: Session = Depends(get_db)
 ):
-    
-    ## Check for duplicate email
+    # Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     try:
         user_id = str(uuid.uuid4())  # Generate a UUID for user_id
-        doctor_id = str(uuid.uuid4()) # Generate a UUID for admin_id
+        doctor_id = str(uuid.uuid4()) # Generate a UUID for doctor_id
         dob_datetime = datetime.fromtimestamp(dob)
         password_hash = get_password_hash(password)
         
-        if isinstance(historical, str):
-            # Convert string to dictionary
-            data_dict = json.loads(historical)
+        if historical:
+            try:
+                # Convert string to dictionary
+                data_dict = json.loads(historical)
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid JSON for historical field: {str(e)}")
         else:
-            # Assume it's already a dictionary
-            data_dict = historical
+            data_dict = {}
 
+        # Create dynamic fields for the historical model
         dynamic_fields = {key: (type(value), ...) for key, value in data_dict.items()}
-
-        # Create a dynamic model class
         DynamicModel = create_model('DynamicModel', **dynamic_fields)
-
-        # Create an instance of the dynamic model
         dynamic_instance = DynamicModel(**data_dict).json()
 
         user = User(user_id=user_id, user_name=user_name, user_email=email, password=password_hash, user_type=2)
-        doctor = Doctor(doctor_id=doctor_id, user_id=user_id, 
-                      name=name, dob=dob_datetime, 
-                      national_id=national_id, tax_num=tax_num,
-                      license_num=license_num, historical=dynamic_instance,
-                      pob=pob, phone_num=phone_num, sex=sex, address=address)
+        doctor = Doctor(
+            doctor_id=doctor_id, user_id=user_id, 
+            name=name, dob=dob_datetime, national_id=national_id, 
+            tax_num=tax_num, license_num=license_num, 
+            historical=dynamic_instance, pob=pob, 
+            phone_num=phone_num, sex=sex, address=address
+        )
         db.add(user)
         db.add(doctor)
         db.commit()
@@ -99,25 +99,99 @@ async def register_doctor(
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
     
+##GET LIST DOCTOR
+@router.get("/doctor/list")
+async def view_doctor(
+    # current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
+    try:
+        # if current_user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
+
+        doctors = db.query(Doctor).all()
+        if not doctors:
+            raise HTTPException(status_code=404, detail="No doctors found")
+        return doctors
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+##GET DOCTOR BY DOCTR_ID
+@router.get("/doctor/{doctor_id}")
+async def get_doctor_by_id(doctor_id: str, db: Session = Depends(get_db)):
+    try:
+        doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        return doctor
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+##UPDATE DOCTOR
+@router.put("/doctor/{doctor_id}")
+async def update_doctor(
+    doctor_id: str,
+    name: str = Form(None),
+    pob: str = Form(None),
+    dob: int = Form(None),
+    national_id: str = Form(None),
+    phone_num: str = Form(None),
+    tax_num: str = Form(None),
+    license_num: str = Form(None),
+    historical: str = Form(None),
+    address: str = Form(None),
+    sex: bool = Form(None),
+    db: Session = Depends(get_db)
+):
+    try:
+        doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+
+        if name is not None:
+            doctor.name = name
+        if pob is not None:
+            doctor.pob = pob
+        if dob is not None:
+            doctor.dob = datetime.fromtimestamp(dob)
+        if national_id is not None:
+            doctor.national_id = national_id
+        if phone_num is not None:
+            doctor.phone_num = phone_num
+        if tax_num is not None:
+            doctor.tax_num = tax_num
+        if license_num is not None:
+            doctor.license_num = license_num
+        if historical is not None:
+            doctor.historical = historical
+        if address is not None:
+            doctor.address = address
+        if sex is not None:
+            doctor.sex = sex
+
+        db.commit()
+        db.refresh(doctor)
+        return doctor
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 #REGISTER NEW STAFF
-@router.post("/staff/register")
+@router.post("/staff/new")
 async def register_staff(
     name: str = Form(None),
-    dob: int=Form(None),
-    pob: str=Form(None),
-    national_id: int=Form(None),
-    phone_num: int=Form(None),
-    tax_num: int=Form(None),
-    license_num: int=Form(None),
+    dob: int = Form(None),  
+    pob: str = Form(None),
+    national_id: str = Form(None),  
+    phone_num: str = Form(None),  
+    tax_num: str = Form(None),  
+    license_num: str = Form(None),  
     historical: Dict | str = Form(None),
-    address: Optional[str]=Form(None),
-    sex: bool=Form(None),
-    email: EmailStr= Form(None),
-    password: str=Form(None),
-    user_name: str=Form(None),
+    address: Optional[str] = Form(None),
+    sex: bool = Form(None),
+    email: EmailStr = Form(None),
+    password: str = Form(None),
+    user_name: str = Form(None),
     db=Depends(get_db)
-):
+):  
     
     ## Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
@@ -130,19 +204,18 @@ async def register_staff(
         dob_datetime = datetime.fromtimestamp(dob)
         password_hash = get_password_hash(password)
         
-        if isinstance(historical, str):
-            # Convert string to dictionary
-            data_dict = json.loads(historical)
+        if historical:
+            try:
+                # Convert string to dictionary
+                data_dict = json.loads(historical)
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid JSON for historical field: {str(e)}")
         else:
-            # Assume it's already a dictionary
-            data_dict = historical
+            data_dict = {}
 
+        # Create dynamic fields for the historical model
         dynamic_fields = {key: (type(value), ...) for key, value in data_dict.items()}
-
-        # Create a dynamic model class
         DynamicModel = create_model('DynamicModel', **dynamic_fields)
-
-        # Create an instance of the dynamic model
         dynamic_instance = DynamicModel(**data_dict).json()
 
         
@@ -160,10 +233,95 @@ async def register_staff(
         return staff
     except Exception as e:
         print(e)
+        raise HTTPException(status_code=500, detail=str(e))
+    
+##GET LIST STAFF
+@router.get("/staff/list")
+async def view_staff(
+    # current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
+    try:
+        # if current_user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
+
+        staffs = db.query(MedicalStaff).all()
+        if not staffs:
+            raise HTTPException(status_code=404, detail="No staffs found")
+        return staffs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
+##GET STAFF BY STAFF_ID
+@router.get("/staff/{staff_id}")
+async def get_staff_by_id(staff_id: str, db: Session = Depends(get_db)):
+    try:
+        staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
+        if not staff:
+            raise HTTPException(status_code=404, detail="Staff not found")
+        return staff
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
+@router.put("/staff/{staff_id}")
+async def update_staff(
+    staff_id: str,
+    name: str = Form(None),
+    dob: int = Form(None),  
+    pob: str = Form(None),
+    national_id: str = Form(None),  
+    phone_num: str = Form(None),  
+    tax_num: str = Form(None),  
+    license_num: str = Form(None),  
+    historical: Dict | str = Form(None),
+    address: Optional[str] = Form(None),
+    sex: bool = Form(None),
+    email: EmailStr = Form(None),
+    password: str = Form(None),
+    user_name: str = Form(None),
+    db=Depends(get_db)
+):  
+    try:
+        staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
+        if not staff:
+            raise HTTPException(status_code=404, detail="Staff not found")
+
+        if name is not None:
+            staff.name = name
+        if dob is not None:
+            staff.dob = datetime.fromtimestamp(dob)
+        if pob is not None:
+            staff.pob = pob
+        if national_id is not None:
+            staff.national_id = national_id
+        if phone_num is not None:
+            staff.phone_num = phone_num
+        if tax_num is not None:
+            staff.tax_num = tax_num
+        if license_num is not None:
+            staff.license_num = license_num
+        if historical is not None:
+            try:
+                data_dict = json.loads(historical)
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid JSON for historical field: {str(e)}")
+            dynamic_fields = {key: (type(value), ...) for key, value in data_dict.items()}
+            DynamicModel = create_model('DynamicModel', **dynamic_fields)
+            dynamic_instance = DynamicModel(**data_dict).json()
+            staff.historical = dynamic_instance
+        if address is not None:
+            staff.address = address
+        if sex is not None:
+            staff.sex = sex
+
+        db.commit()
+        db.refresh(staff)
+        return staff
+    except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 #REGISTER NEW POLYCLINIC
-@router.post("/polyclinic/new")
+@router.post("/poly/new")
 async def register_polyclinic(
     poly_name: str = Form(None),
     poly_desc: str = Form(None),
@@ -187,9 +345,36 @@ async def register_polyclinic(
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
     
+##GET LIST POLYCLINIC
+@router.get("/poly/list")
+async def view_poly(
+    # current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
+    try:
+        # if current_user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
+
+        polyclinics = db.query(Polyclinic).all()
+        if not polyclinics:
+            raise HTTPException(status_code=404, detail="No polyclinics found")
+        return polyclinics
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
+##GET POLY BY POLY_ID
+@router.get("/poly/{poly_id}")
+async def get_poly_by_id(poly_id: str, db: Session = Depends(get_db)):
+    try:
+        polyclinic = db.query(Polyclinic).filter(Polyclinic.poly_id == poly_id).first()
+        if not polyclinic:
+            raise HTTPException(status_code=404, detail="Polyclinic not found")
+        return polyclinic
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
 
 #REGISTER NEW LABORATORY
-@router.post("/laboratory/new")
+@router.post("/lab/new")
 async def register_laboratory(
     lab_name: str = Form(None),
     lab_desc: str = Form(None),
