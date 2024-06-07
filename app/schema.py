@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Dict, Optional
 
+
 class User(BaseModel):
     user_id: str
     user_name: str

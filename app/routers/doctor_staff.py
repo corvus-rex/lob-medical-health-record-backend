@@ -1,5 +1,5 @@
 from typing import Annotated, Optional, Dict
-from fastapi import Depends, FastAPI, HTTPException, status, Form, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, status, Form, UploadFile, File
 from pydantic import BaseModel, EmailStr, constr, Field, create_model
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_sqlalchemy import DBSessionMiddleware, db
@@ -16,6 +16,7 @@ import uuid
 import json
 import os
 from dotenv import load_dotenv
+import shutil
 
 
 from schema import *
@@ -372,6 +373,31 @@ async def get_poly_by_id(poly_id: str, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
     
+##CONTINUE HERE 06 JUNE 2024 01:18AM
+#UPDATE POLYCLINIC
+@router.put("/poly/{poly_id}")
+async def update_polyclinic(
+    poly_id: str,
+    poly_name: str = Form(None),
+    poly_desc: str = Form(None),
+    db=Depends(get_db)
+):
+    try:
+        polyclinic = db.query(Polyclinic).filter(Polyclinic.poly_id == poly_id).first()
+        if not polyclinic:
+            raise HTTPException(status_code=404, detail="Polyclinic not found")
+        
+        if poly_name is not None:
+            polyclinic.poly_name = poly_name
+        if poly_desc is not None:
+            polyclinic.poly_desc = poly_desc
+
+        db.commit()
+        db.refresh(polyclinic)
+        return polyclinic
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 #REGISTER NEW LABORATORY
 @router.post("/lab/new")
@@ -398,30 +424,82 @@ async def register_laboratory(
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
     
+##GET LIST LAB
+@router.get("/lab/list")
+async def view_lab(
+    # current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
+    try:
+        # if current_user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
+
+        labs = db.query(Laboratory).all()
+        if not labs:
+            raise HTTPException(status_code=404, detail="No labs found")
+        return labs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+##GET LAB BY LAB_ID
+@router.get("/lab/{lab_id}")
+async def get_lab_by_id(lab_id: str, db: Session = Depends(get_db)):
+    try:
+        lab = db.query(Laboratory).filter(Laboratory.lab_id == lab_id).first()
+        if not lab:
+            raise HTTPException(status_code=404, detail="Laboratory not found")
+        return lab
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+# UPDATE LABORATORY
+@router.put("/lab/{lab_id}")
+async def update_laboratory(
+    lab_id: str,
+    lab_name: str = Form(None),
+    lab_desc: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    try:
+        laboratory = db.query(Laboratory).filter(Laboratory.lab_id == lab_id).first()
+        if not laboratory:
+            raise HTTPException(status_code=404, detail="Laboratory not found")
+
+        if lab_name is not None:
+            laboratory.lab_name = lab_name
+        if lab_desc is not None:
+            laboratory.lab_desc = lab_desc
+
+        db.commit()
+        db.refresh(laboratory)
+        return laboratory
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 #REGISTER DOCTOR TO POLYCLINIC
-@router.post("/polyclinic/assign-doctor")
+@router.post("/poly/assign-doctor")
 async def register_doctor_polyclinic(
     poly_id: str=Form(None),
     doctor_id: str=Form(None),
-    user: str = Depends(get_current_user),
+    # user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):
     ## Only Admin can register doctor to existing polyclinic
-    if user.user_type != 1:
-        raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new doctor to polyclinic")
+    # if user.user_type != 1:
+    #     raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new doctor to polyclinic")
 
     ## Check if doctor_id exist
     existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
     if not existing_doctor:
-        raise HTTPException(status_code=400, detail="This doctor ID does not exist")
+        raise HTTPException(status_code=400, detail="This doctor ID is missing or does not exist")
     
     ## Check if poly_id exist
     existing_poly = db.query(Polyclinic).filter(Polyclinic.poly_id == poly_id).first()
     if not existing_poly:
-        raise HTTPException(status_code=400, detail="This polyclinic ID does not exist")
+        raise HTTPException(status_code=400, detail="This polyclinic ID is missing or does not exist")
     
     # Check if doctor is already assigned to the same poly
-    existing_assignment = db.query(LaboratoryStaff).filter(
+    existing_assignment = db.query(PolyclinicDoctor).filter(
         PolyclinicDoctor.poly_id == poly_id, PolyclinicDoctor.doctor_id == doctor_id
     ).first()
     if existing_assignment:
@@ -444,32 +522,32 @@ async def register_doctor_polyclinic(
 async def assign_staff_laboratory(
     lab_id: str = Form(None),
     staff_id: str = Form(None),
-    user: str = Depends(get_current_user),
-    db=Depends(get_db)
+    # user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     ## Only Admin can register staff to existing laboratory
-    if user.user_type != 1:
-        raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new staff to laboratory")
+    # if user.user_type != 1:
+    #     raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new staff to laboratory")
 
-    ## Check if lab_id exist
-    existing_lab = db.query(Laboratory).filter(str(Laboratory.lab_id) == lab_id).first()
-    if not existing_lab:
-        raise HTTPException(status_code=400, detail="This laboratory ID does not exist")
-
-    ## Check if staff_id exist
-    existing_staff = db.query(MedicalStaff).filter(str(MedicalStaff.staff_id) == staff_id).first()
+    # Check if staff_id exists
+    existing_staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
     if not existing_staff:
-        raise HTTPException(status_code=400, detail="This staff ID does not exist")
-    
+        raise HTTPException(status_code=404, detail="Staff ID not found")
+
+    # Check if lab_id exists
+    existing_lab = db.query(Laboratory).filter(Laboratory.lab_id == lab_id).first()
+    if not existing_lab:
+        raise HTTPException(status_code=404, detail="Laboratory ID not found")
+
     # Check if staff is already assigned to the laboratory
     existing_assignment = db.query(LaboratoryStaff).filter(
         LaboratoryStaff.lab_id == lab_id, LaboratoryStaff.staff_id == staff_id
     ).first()
     if existing_assignment:
         raise HTTPException(status_code=400, detail="Staff is already assigned to this laboratory")
-    
-    try:        
-        staff_laboratory = LaboratoryStaff(lab_id=lab_id, staff_id=staff_id)
+
+    try:
+        staff_laboratory = LaboratoryStaff(staff_id=staff_id, lab_id=lab_id)
         db.add(staff_laboratory)
         db.commit()
         db.refresh(staff_laboratory)
@@ -478,17 +556,16 @@ async def assign_staff_laboratory(
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
-#ADD PATIENT INTEREST
 @router.post("/patient/assign-interest")
 async def assign_patient_interest(
     patient_id: Optional[str] = Form(None),
     staff_id: Optional[str] = Form(None),
     doctor_id: Optional[str] = Form(None),
-    user: User = Depends(get_current_user),
+    # user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if user.user_type == 1 or user.user_type == 4:
-        raise HTTPException(status_code=401, detail="Authorization error: Only doctor or staff can register add patient interest")
+    # if user.user_type == 1 or user.user_type == 4:
+    #     raise HTTPException(status_code=401, detail="Authorization error: Only doctor or staff can add patient interest")
 
     # Validate input: Either staff_id or doctor_id must be provided
     if not staff_id and not doctor_id:
@@ -497,17 +574,19 @@ async def assign_patient_interest(
     # Check if patient exists
     existing_patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
     if not existing_patient:
-        raise HTTPException(status_code=400, detail="Patient not found")
+        raise HTTPException(status_code=404, detail="Patient not found")
 
     # Check if staff exists (if provided)
-    existing_staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
-    if not existing_staff:
-        raise HTTPException(status_code=400, detail="Staff not found")
+    if staff_id:
+        existing_staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
+        if not existing_staff:
+            raise HTTPException(status_code=404, detail="Staff not found")
 
     # Check if doctor exists (if provided)
-    existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
-    if not existing_doctor:
-        raise HTTPException(status_code=400, detail="Doctor not found")
+    if doctor_id:
+        existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
+        if not existing_doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
 
     # Attempt to create patient interest record
     existing_interest = db.query(PatientInterest).filter(
@@ -517,8 +596,8 @@ async def assign_patient_interest(
 
     if existing_interest:
         raise HTTPException(status_code=400, detail="Patient interest already exists")
-    
-    try:        
+
+    try:
         patient_interest = PatientInterest(patient_id=patient_id, staff_id=staff_id, doctor_id=doctor_id)
         db.add(patient_interest)
         db.commit()
@@ -553,27 +632,71 @@ async def create_medical_record(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-## CREATE NEW MEDICAL_NOTE IN EXISTING RECORD
+##GET LIST MEDICAL RECORD
+@router.get("/emr/list")
+async def view_emr(
+    # current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
+    try:
+        # if current_user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
+
+        records = db.query(MedicalRecord).all()
+        if not records:
+            raise HTTPException(status_code=404, detail="No records found")
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
+##GET MEDICAL RECORD BY ID
+@router.get("/emr/{record_id}")
+async def get_medical_record(record_id: str, db: Session = Depends(get_db)):
+    try:
+        medical_record = db.query(MedicalRecord).filter(MedicalRecord.record_id == record_id).first()
+        if not medical_record:
+            raise HTTPException(status_code=404, detail="Medical record not found")
+
+        medical_record.medical_note = db.query(MedicalNote).filter(MedicalNote.record_id == record_id).all()
+        medical_record.clinical_entry = db.query(ClinicalEntry).filter(ClinicalEntry.record_id == record_id).all()
+        medical_record.lab_report = db.query(LabReport).filter(LabReport.record_id == record_id).all()
+
+        return medical_record
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+#CONTI NUE 6 JUNI 2024 05:54AM    
+## CREATE NEW MEDICAL_NOTE
 @router.post("/emr/new-medical-note")
 async def create_medical_note(
     record_id: str = Form(None),
-    note_date: date = Form(None),
+    note_date: int = Form(None),
     note_content: str = Form(None),
     doctor_id: str = Form(None),
     poly_id: str = Form(None),
-    attachment: str = Form(None),
+    attachment: UploadFile = File(None),
     diagnosis: str = Form(None),
     # user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Check existing medical record
     medical_record = db.query(MedicalRecord).filter(MedicalRecord.record_id == record_id).first()
-    if medical_record:
-        raise HTTPException(status_code=400, detail="Medical record not found") 
+    if not medical_record:
+        raise HTTPException(status_code=404, detail="Medical record not found") 
     
     note_id = str(uuid.uuid4())  # Generate a UUID for record
 
     try:
+        attachment_path = None
+        if attachment:
+            save_dir = "attachments"
+            os.makedirs(save_dir, exist_ok=True)
+            file_location = f"{save_dir}/{note_id}_{attachment.filename}"
+            with open(file_location, "wb") as file_object:
+                shutil.copyfileobj(attachment.file, file_object)
+            attachment_path = file_location
+
+        note_date = datetime.fromtimestamp(note_date)
+
         medical_note = MedicalNote(
             note_id=note_id,
             record_id=record_id,
@@ -581,21 +704,23 @@ async def create_medical_note(
             note_content=note_content,
             doctor_id=doctor_id,
             poly_id=poly_id,
-            attachment=attachment,
-            diagnosis=diagnosis)
+            attachment=attachment_path,
+            diagnosis=diagnosis
+        )
         db.add(medical_note)
         db.commit()
         db.refresh(medical_note)
         return medical_note
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e))
+
     
 ## CREATE NEW CLINICAL ENTRY IN EXISTING RECORD
 @router.post("/emr/new-clinical-entry") 
 async def create_clinical_entry(
     record_id: str = Form(None),
-    entry_date: date = Form(None),
+    entry_date: int = Form(None),
     staff_id: str = Form(None),
     height: Optional[int] = Form(None),
     weight: Optional[int] = Form(None),
@@ -613,8 +738,13 @@ async def create_clinical_entry(
     if not medical_record:
         raise HTTPException(status_code=400, detail="Medical record not found")
     
+    entry_id = str(uuid.uuid4())  # Generate a UUID for record
+    
     try:
+        entry_date = datetime.fromtimestamp(entry_date)
+
         clinical_entry = ClinicalEntry(
+            entry_id=entry_id,
             record_id=record_id,
             entry_date=entry_date,
             staff_id=staff_id,
@@ -625,25 +755,26 @@ async def create_clinical_entry(
             systolic=systolic,
             diastolic=diastolic,
             pulse=pulse,
-            note=note)
+            note=note
+        )
         db.add(clinical_entry)
         db.commit()
         db.refresh(clinical_entry)
         return clinical_entry
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e))
     
 
 ## CREATE NEW LAB REPORT IN EXISTING RECORD
 @router.post("/emr/new-lab-report")  # Adjust endpoint name as needed
 async def create_lab_report(
     record_id: str = Form(None),
-    report_date: date = Form(None),
+    report_date: int = Form(None),
     lab_note: str = Form(None),
     staff_id: str = Form(None),
     lab_id: str = Form(None),
-    attachment: Optional[str] = Form(None),
+    attachment: Optional[UploadFile] = File(None),
     # user: User = Depends(get_current_user), 
     db: Session = Depends(get_db),
 ):
@@ -651,15 +782,29 @@ async def create_lab_report(
     medical_record = db.query(MedicalRecord).filter(MedicalRecord.record_id == record_id).first()
     if not medical_record:
         raise HTTPException(status_code=400, detail="Medical record not found")
+    
+    report_id = str(uuid.uuid4())  # Generate a UUID for record
 
     try:
+        report_date = datetime.fromtimestamp(report_date)
+
+        attachment_path = None
+        if attachment:
+            save_dir = "attachments"
+            os.makedirs(save_dir, exist_ok=True)
+            file_location = f"{save_dir}/{record_id}_{attachment.filename}"
+            with open(file_location, "wb") as file_object:
+                shutil.copyfileobj(attachment.file, file_object)
+            attachment_path = file_location
+
         lab_report = LabReport(
+            report_id = report_id,
             record_id=record_id,
             report_date=report_date,
             lab_note=lab_note,
             staff_id=staff_id,
             lab_id=lab_id,
-            attachment=attachment,
+            attachment=attachment_path,
         )
         db.add(lab_report)
         db.commit()

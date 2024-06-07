@@ -130,7 +130,7 @@ class PolyclinicDoctor(Base):
     polyclinic = relationship("Polyclinic", back_populates="doctor")
 
 class LaboratoryStaff(Base):
-    __tablename__ = 'laboratory_staff'
+    __tablename__ = 'staff_laboratory'
     staff_id = Column(UUID, ForeignKey('medical_staff.staff_id'), primary_key=True)
     lab_id = Column(UUID, ForeignKey('laboratory.lab_id'), primary_key=True)
 
@@ -181,7 +181,7 @@ class MedicalNote(Base):
     __tablename__ = 'medical_note'
     note_id = Column(UUID, primary_key=True, index=True)
     record_id = Column(UUID, ForeignKey('medical_record.record_id'), nullable=False)
-    note_date = Column(Date, nullable=False)
+    note_date = Column(DateTime, nullable=False)
     note_content = Column(String, nullable=False)
     doctor_id = Column(UUID, ForeignKey('doctor.doctor_id'), nullable=False)
     poly_id = Column(UUID, ForeignKey('polyclinic.poly_id'), nullable=False)

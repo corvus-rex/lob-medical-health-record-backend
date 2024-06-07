@@ -32,35 +32,39 @@ def verify_password(plain_password, hashed_password):
 ## INITIALIZE ROUTER
 router = APIRouter()
 
-#REGISTER NEW ADMIN
-@router.post("/admin/register")
+#CREATE ADMIN
+@router.post("/admin/new")
 async def register_admin(
+    user: str = Depends(get_current_user),  
     name: str = Form(None),
-    dob: int=Form(None),
-    national_id: int=Form(None),
-    tax_number: int=Form(None),
-    sex: bool=Form(None),
-    address: Optional[str]=Form(None),
-    email: EmailStr= Form(None),
-    phone_num: int=Form(None),
-    password: str=Form(None),
-    user_name: str=Form(None),
+    dob: int = Form(None),
+    national_id: int = Form(None),
+    tax_number: int = Form(None),
+    sex: bool = Form(None),
+    address: Optional[str] = Form(None),
+    email: EmailStr = Form(None),
+    phone_num: int = Form(None),
+    password: str = Form(None),
+    user_name: str = Form(None),
     db=Depends(get_db)
 ):
-    
-    ## Check for duplicate email
+    # Check if the authenticated user is an admin
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Only admins can create new admins")
+
+    # Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     try:
         user_id = str(uuid.uuid4())  # Generate a UUID for user_id
-        admin_id = str(uuid.uuid4()) # Generate a UUID for admin_id
+        admin_id = str(uuid.uuid4())  # Generate a UUID for admin_id
         dob_datetime = datetime.fromtimestamp(dob)
         password_hash = get_password_hash(password)
         user = User(user_id=user_id, user_name=user_name, user_email=email, password=password_hash, user_type=1)
-        admin = Admin(admin_id=admin_id, user_id=user_id, 
-                      name=name, dob=dob_datetime, 
+        admin = Admin(admin_id=admin_id, user_id=user_id,
+                      name=name, dob=dob_datetime,
                       national_id=national_id, tax_number=tax_number,
                       phone_num=phone_num, sex=sex, address=address)
         db.add(user)
@@ -78,7 +82,7 @@ async def register_admin(
 @router.post("/patient/new")
 async def register_patient(
     name: str = Form(None),
-    dob: int=Form(None),
+    dob: int = Form(None),
     national_id: int = Form(None),
     sex: bool = Form(None),
     phone_num: Optional[str] = Form(None),
@@ -86,54 +90,60 @@ async def register_patient(
     alias: Optional[str] = Form(None),
     relative_phone: Optional[str] = Form(None),
     insurance_id: Optional[str] = Form(None),
-    email: EmailStr= Form(None),
-    password: str=Form(None),
-    user_name: str=Form(None),
-    # user: str = Depends(get_current_user),
-    db=Depends(get_db)
+    email: EmailStr = Form(None),
+    password: str = Form(None),
+    user_name: str = Form(None),
+    current_user: User = Depends(get_current_user),  # Use current_user instead of user
+    db: Session = Depends(get_db)  # Use Session type hint for db
 ):
+    # Ensure only admin or doctor can register a new patient
+    if current_user.user_type not in [1, 2]:
+        raise HTTPException(status_code=403, detail="Access forbidden. Only admins and doctors can register patients.")
     
-    ## Check for duplicate email
+    # Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
     try:
         user_id = str(uuid.uuid4())  # Generate a UUID for user_id
-        patient_id = str(uuid.uuid4()) # Generate a UUID for patient_id
+        patient_id = str(uuid.uuid4())  # Generate a UUID for patient_id
+
         dob_datetime = datetime.fromtimestamp(dob)
         password_hash = get_password_hash(password)
 
-        user = User(user_id=user_id, 
-                    user_name=user_name, 
-                    user_email=email, 
-                    password=password_hash, 
-                    user_type=4)
+        new_user = User(
+            user_id=user_id,
+            user_name=user_name,
+            user_email=email,
+            password=password_hash,
+            user_type=4
+        )
         
-        patient = Patient(patient_id=patient_id,
-                          user_id = user_id,
-                          name = name,
-                          dob = dob_datetime,
-                          national_id = national_id,
-                          sex = sex,
-                          phone_num = phone_num,
-                          address = address,
-                          alias = alias,
-                          relative_phone = relative_phone,
-                          insurance_id = insurance_id)
+        new_patient = Patient(
+            patient_id=patient_id,
+            user_id=user_id,
+            name=name,
+            dob=dob_datetime,
+            national_id=national_id,
+            sex=sex,
+            phone_num=phone_num,
+            address=address,
+            alias=alias,
+            relative_phone=relative_phone,
+            insurance_id=insurance_id
+        )
         
-        db.add(user)
-        db.add(patient)
+        db.add(new_user)
+        db.add(new_patient)
         db.commit()
-        db.refresh(user)
-        db.refresh(patient)
-        return patient
+        db.refresh(new_user)
+        db.refresh(new_patient)
+        return new_patient
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
-    
-    ## Check if user.user_type == 4, continue if yes, if not raise error 401
-    # raise HTTPException(status_code=500, detail="Internal server error")
+
     
 
 ## LOGIN SETUP
@@ -146,7 +156,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     if expires_delta:
         expire = datetime.now() + expires_delta
     else:
-        expire = datetime.now() + timedelta(minutes=15)
+        expire = datetime.now() + timedelta(days=2) ##Sementara aku buat 2 hari (Chr)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, os.environ['SECRET_KEY'], algorithm=os.environ['ALGORITHM'])
     return encoded_jwt
@@ -182,3 +192,18 @@ async def verify_identity(
     user: str = Depends(get_current_user),
 ):
     return user
+
+
+@router.get("/user/list")
+async def view_user(
+    db: Session = Depends(get_db)
+):
+    try:
+        insurances = db.query(User).all()
+        if not insurances:
+            raise HTTPException(status_code=404, detail="No USERS found")
+        return insurances
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
+
