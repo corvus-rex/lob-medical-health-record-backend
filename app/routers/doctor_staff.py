@@ -55,8 +55,13 @@ async def register_doctor(
     email: EmailStr = Form(None),
     password: str = Form(None),
     user_name: str = Form(None),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden.")
+    
     # Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
@@ -103,11 +108,11 @@ async def register_doctor(
 ##GET LIST DOCTOR
 @router.get("/doctor/list")
 async def view_doctor(
-    # current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user), 
     db: Session = Depends(get_db)):
     try:
-        # if current_user.user_type != 1:
-        #     raise HTTPException(status_code=403, detail="Access forbidden")
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden.")
 
         doctors = db.query(Doctor).all()
         if not doctors:
@@ -116,10 +121,16 @@ async def view_doctor(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-##GET DOCTOR BY DOCTR_ID
+##GET DOCTOR BY DOCTOR_ID
 @router.get("/doctor/{doctor_id}")
-async def get_doctor_by_id(doctor_id: str, db: Session = Depends(get_db)):
+async def get_doctor_by_id(
+    doctor_id: str, 
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)):
     try:
+        if user.user_type not in [1, 2]:
+            raise HTTPException(status_code=403, detail="Access forbidden")
+        
         doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
@@ -141,13 +152,17 @@ async def update_doctor(
     historical: str = Form(None),
     address: str = Form(None),
     sex: bool = Form(None),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden.")
+        
         doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
-
+    
         if name is not None:
             doctor.name = name
         if pob is not None:
@@ -191,8 +206,11 @@ async def register_staff(
     email: EmailStr = Form(None),
     password: str = Form(None),
     user_name: str = Form(None),
+    user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):  
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden.")
     
     ## Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
@@ -239,11 +257,11 @@ async def register_staff(
 ##GET LIST STAFF
 @router.get("/staff/list")
 async def view_staff(
-    # current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user), 
     db: Session = Depends(get_db)):
     try:
-        # if current_user.user_type != 1:
-        #     raise HTTPException(status_code=403, detail="Access forbidden")
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden")
 
         staffs = db.query(MedicalStaff).all()
         if not staffs:
@@ -254,8 +272,14 @@ async def view_staff(
     
 ##GET STAFF BY STAFF_ID
 @router.get("/staff/{staff_id}")
-async def get_staff_by_id(staff_id: str, db: Session = Depends(get_db)):
+async def get_staff_by_id(
+    staff_id: str, 
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)):
     try:
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden")
+        
         staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
         if not staff:
             raise HTTPException(status_code=404, detail="Staff not found")
@@ -276,12 +300,13 @@ async def update_staff(
     historical: Dict | str = Form(None),
     address: Optional[str] = Form(None),
     sex: bool = Form(None),
-    email: EmailStr = Form(None),
-    password: str = Form(None),
-    user_name: str = Form(None),
+    user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):  
     try:
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden")
+        
         staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
         if not staff:
             raise HTTPException(status_code=404, detail="Staff not found")
@@ -326,8 +351,11 @@ async def update_staff(
 async def register_polyclinic(
     poly_name: str = Form(None),
     poly_desc: str = Form(None),
+    user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
     
     ## Check for duplicate polyclinic name
     existing_poly = db.query(Polyclinic).filter(Polyclinic.poly_name == poly_name).first()
@@ -349,10 +377,10 @@ async def register_polyclinic(
 ##GET LIST POLYCLINIC
 @router.get("/poly/list")
 async def view_poly(
-    # current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)):
     try:
-        # if current_user.user_type != 1:
+        # if user.user_type != 1:
         #     raise HTTPException(status_code=403, detail="Access forbidden")
 
         polyclinics = db.query(Polyclinic).all()
@@ -364,8 +392,14 @@ async def view_poly(
     
 ##GET POLY BY POLY_ID
 @router.get("/poly/{poly_id}")
-async def get_poly_by_id(poly_id: str, db: Session = Depends(get_db)):
+async def get_poly_by_id(
+    poly_id: str, 
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)):
     try:
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden")
+        
         polyclinic = db.query(Polyclinic).filter(Polyclinic.poly_id == poly_id).first()
         if not polyclinic:
             raise HTTPException(status_code=404, detail="Polyclinic not found")
@@ -380,9 +414,13 @@ async def update_polyclinic(
     poly_id: str,
     poly_name: str = Form(None),
     poly_desc: str = Form(None),
+    user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):
     try:
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden")
+
         polyclinic = db.query(Polyclinic).filter(Polyclinic.poly_id == poly_id).first()
         if not polyclinic:
             raise HTTPException(status_code=404, detail="Polyclinic not found")
@@ -404,10 +442,13 @@ async def update_polyclinic(
 async def register_laboratory(
     lab_name: str = Form(None),
     lab_desc: str = Form(None),
+    user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):
-    
-    ## Check for duplicate polyclinic name
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+
+    ## Check for duplicate laboratory name
     existing_poly = db.query(Laboratory).filter(Laboratory.lab_name == lab_name).first()
     if existing_poly:
         raise HTTPException(status_code=400, detail="This laboratory name already exist")
@@ -427,10 +468,10 @@ async def register_laboratory(
 ##GET LIST LAB
 @router.get("/lab/list")
 async def view_lab(
-    # current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user), 
     db: Session = Depends(get_db)):
     try:
-        # if current_user.user_type != 1:
+        # if user.user_type != 1:
         #     raise HTTPException(status_code=403, detail="Access forbidden")
 
         labs = db.query(Laboratory).all()
@@ -442,8 +483,14 @@ async def view_lab(
 
 ##GET LAB BY LAB_ID
 @router.get("/lab/{lab_id}")
-async def get_lab_by_id(lab_id: str, db: Session = Depends(get_db)):
+async def get_lab_by_id(
+    lab_id: str, 
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)):
     try:
+        # if user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
+    
         lab = db.query(Laboratory).filter(Laboratory.lab_id == lab_id).first()
         if not lab:
             raise HTTPException(status_code=404, detail="Laboratory not found")
@@ -457,9 +504,13 @@ async def update_laboratory(
     lab_id: str,
     lab_name: str = Form(None),
     lab_desc: str = Form(None),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden")
+    
         laboratory = db.query(Laboratory).filter(Laboratory.lab_id == lab_id).first()
         if not laboratory:
             raise HTTPException(status_code=404, detail="Laboratory not found")
@@ -476,17 +527,16 @@ async def update_laboratory(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-#REGISTER DOCTOR TO POLYCLINIC
+#ASSIGN DOCTOR TO POLYCLINIC
 @router.post("/poly/assign-doctor")
 async def register_doctor_polyclinic(
     poly_id: str=Form(None),
     doctor_id: str=Form(None),
-    # user: str = Depends(get_current_user),
+    user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):
-    ## Only Admin can register doctor to existing polyclinic
-    # if user.user_type != 1:
-    #     raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new doctor to polyclinic")
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
 
     ## Check if doctor_id exist
     existing_doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
@@ -515,19 +565,44 @@ async def register_doctor_polyclinic(
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
+#REMOVE DOCTOR FROM POLYCLINIC
+@router.delete("/poly/remove-doctor")
+async def remove_doctor_from_polyclinic(
+    poly_id: str = Form(None),
+    doctor_id: str = Form(None),
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+
+    try:
+        # Check if the assignment exists
+        existing_assignment = db.query(PolyclinicDoctor).filter(
+            PolyclinicDoctor.poly_id == poly_id, PolyclinicDoctor.doctor_id == doctor_id
+        ).first()
+        if not existing_assignment:
+            raise HTTPException(status_code=404, detail="Assignment not found")
+
+        # Remove the assignment
+        db.delete(existing_assignment)
+        db.commit()
+        return {"message": "Doctor removed from polyclinic successfully"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 #REGISTER/ASSIGN STAFF TO LABORATORY
-# @router.post("/laboratory/staff/register")
 @router.post("/lab/assign-staff")
 async def assign_staff_laboratory(
     lab_id: str = Form(None),
     staff_id: str = Form(None),
-    # user: str = Depends(get_current_user),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    ## Only Admin can register staff to existing laboratory
-    # if user.user_type != 1:
-    #     raise HTTPException(status_code=401, detail="Authorization error: Only admin can register new staff to laboratory")
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
 
     # Check if staff_id exists
     existing_staff = db.query(MedicalStaff).filter(MedicalStaff.staff_id == staff_id).first()
@@ -555,17 +630,44 @@ async def assign_staff_laboratory(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
+    
+# REMOVE STAFF FROM LABORATORY
+@router.delete("/lab/remove-staff")
+async def remove_staff_from_laboratory(
+    lab_id: str = Form(None),
+    staff_id: str = Form(None),
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+
+    try:
+        # Check if the assignment exists
+        existing_assignment = db.query(LaboratoryStaff).filter(
+            LaboratoryStaff.lab_id == lab_id, LaboratoryStaff.staff_id == staff_id
+        ).first()
+        if not existing_assignment:
+            raise HTTPException(status_code=404, detail="Assignment not found")
+
+        # Remove the assignment
+        db.delete(existing_assignment)
+        db.commit()
+        return {"message": "Staff removed from laboratory successfully"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/patient/assign-interest")
 async def assign_patient_interest(
     patient_id: Optional[str] = Form(None),
     staff_id: Optional[str] = Form(None),
     doctor_id: Optional[str] = Form(None),
-    # user: User = Depends(get_current_user),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # if user.user_type == 1 or user.user_type == 4:
-    #     raise HTTPException(status_code=401, detail="Authorization error: Only doctor or staff can add patient interest")
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
 
     # Validate input: Either staff_id or doctor_id must be provided
     if not staff_id and not doctor_id:
@@ -606,15 +708,49 @@ async def assign_patient_interest(
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
+# REMOVE PATIENT INTEREST
+@router.delete("/patient/remove-interest")
+async def remove_patient_interest(
+    patient_id: str = Form(...),
+    staff_id: str = Form(None),
+    doctor_id: str = Form(None),
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+
+    # Check if the patient interest record exists based on the combination of parameters
+    existing_interest = db.query(PatientInterest).filter(
+        PatientInterest.patient_id == patient_id,
+        ((PatientInterest.staff_id == staff_id) & (PatientInterest.doctor_id == None)) |
+        ((PatientInterest.doctor_id == doctor_id) & (PatientInterest.staff_id == None))
+    ).first()
+
+    if not existing_interest:
+        raise HTTPException(status_code=404, detail="Patient interest not found")
+
+    try:
+        # Delete the patient interest record
+        db.delete(existing_interest)
+        db.commit()
+        return {"message": "Patient interest successfully removed"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
 #CREATE NEW MEDICAL RECORD
 @router.post("/emr/new")
 async def create_medical_record(
     patient_id: Optional[str] = Form(None),
     created_date: datetime = Form(None),
     last_editted: datetime = Form(None),
-    # user: User = Depends(get_current_user),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if user.user_type != 1:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
     # Check existing medical record
     medical_record = db.query(MedicalRecord).filter(MedicalRecord.patient_id == patient_id).first()
     if medical_record:
@@ -635,11 +771,11 @@ async def create_medical_record(
 ##GET LIST MEDICAL RECORD
 @router.get("/emr/list")
 async def view_emr(
-    # current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)):
     try:
-        # if current_user.user_type != 1:
-        #     raise HTTPException(status_code=403, detail="Access forbidden")
+        if user.user_type != 1:
+            raise HTTPException(status_code=403, detail="Access forbidden")
 
         records = db.query(MedicalRecord).all()
         if not records:
@@ -650,8 +786,14 @@ async def view_emr(
     
 ##GET MEDICAL RECORD BY ID
 @router.get("/emr/{record_id}")
-async def get_medical_record(record_id: str, db: Session = Depends(get_db)):
+async def get_medical_record(
+    record_id: str, 
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)):
     try:
+        # if user.user_type != 1:
+        #     raise HTTPException(status_code=403, detail="Access forbidden")
+        
         medical_record = db.query(MedicalRecord).filter(MedicalRecord.record_id == record_id).first()
         if not medical_record:
             raise HTTPException(status_code=404, detail="Medical record not found")
@@ -675,9 +817,12 @@ async def create_medical_note(
     poly_id: str = Form(None),
     attachment: UploadFile = File(None),
     diagnosis: str = Form(None),
-    # user: User = Depends(get_current_user),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if user.user_type != 2:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
     # Check existing medical record
     medical_record = db.query(MedicalRecord).filter(MedicalRecord.record_id == record_id).first()
     if not medical_record:
@@ -715,6 +860,47 @@ async def create_medical_note(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+#UPDATE MEDICAL_NOTE
+@router.put("/emr/medical-note/{note_id}")
+async def update_medical_note(
+    note_id: str,
+    note_content: str = Form(None),
+    diagnosis: str = Form(None),
+    attachment: UploadFile = File(None),
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.user_type != 2:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
+    # Check if the medical note exists
+    medical_note = db.query(MedicalNote).filter(MedicalNote.note_id == note_id).first()
+    if not medical_note:
+        raise HTTPException(status_code=404, detail="Medical note not found")
+
+    try:
+        # Update the medical note content and diagnosis if provided
+        if note_content is not None:
+            medical_note.note_content = note_content
+        if diagnosis is not None:
+            medical_note.diagnosis = diagnosis
+
+        # Update the attachment if provided
+        if attachment:
+            save_dir = "attachments"
+            os.makedirs(save_dir, exist_ok=True)
+            file_location = f"{save_dir}/{note_id}_{attachment.filename}"
+            with open(file_location, "wb") as file_object:
+                shutil.copyfileobj(attachment.file, file_object)
+            medical_note.attachment = file_location
+
+        db.commit()
+        db.refresh(medical_note)
+        return medical_note
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
     
 ## CREATE NEW CLINICAL ENTRY IN EXISTING RECORD
 @router.post("/emr/new-clinical-entry") 
@@ -730,9 +916,12 @@ async def create_clinical_entry(
     diastolic: Optional[int] = Form(None),
     pulse: Optional[int] = Form(None),
     note: Optional[str] = Form(None),
-    # user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if user.user_type != 3:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
     # Check existing medical record
     medical_record = db.query(MedicalRecord).filter(MedicalRecord.record_id == record_id).first()
     if not medical_record:
@@ -765,9 +954,58 @@ async def create_clinical_entry(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+#UPDATE CLINICAL ENTRY
+@router.put("/emr/clinical-entry/{entry_id}")
+async def update_clinical_entry(
+    entry_id: str,
+    height: Optional[int] = Form(None),
+    weight: Optional[int] = Form(None),
+    body_temp: Optional[float] = Form(None),
+    blood_type: Optional[str] = Form(None),
+    systolic: Optional[int] = Form(None),
+    diastolic: Optional[int] = Form(None),
+    pulse: Optional[int] = Form(None),
+    note: Optional[str] = Form(None),
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.user_type != 3:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
+    # Check if the clinical entry exists
+    clinical_entry = db.query(ClinicalEntry).filter(ClinicalEntry.entry_id == entry_id).first()
+    if not clinical_entry:
+        raise HTTPException(status_code=404, detail="Clinical entry not found")
+
+    try:
+        # Update the clinical entry details if provided
+        if height is not None:
+            clinical_entry.height = height
+        if weight is not None:
+            clinical_entry.weight = weight
+        if body_temp is not None:
+            clinical_entry.body_temp = body_temp
+        if blood_type is not None:
+            clinical_entry.blood_type = blood_type
+        if systolic is not None:
+            clinical_entry.systolic = systolic
+        if diastolic is not None:
+            clinical_entry.diastolic = diastolic
+        if pulse is not None:
+            clinical_entry.pulse = pulse
+        if note is not None:
+            clinical_entry.note = note
+
+        db.commit()
+        db.refresh(clinical_entry)
+        return clinical_entry
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 ## CREATE NEW LAB REPORT IN EXISTING RECORD
-@router.post("/emr/new-lab-report")  # Adjust endpoint name as needed
+@router.post("/emr/new-lab-report") 
 async def create_lab_report(
     record_id: str = Form(None),
     report_date: int = Form(None),
@@ -775,9 +1013,12 @@ async def create_lab_report(
     staff_id: str = Form(None),
     lab_id: str = Form(None),
     attachment: Optional[UploadFile] = File(None),
-    # user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if user.user_type != 3:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
     # Check existing medical record
     medical_record = db.query(MedicalRecord).filter(MedicalRecord.record_id == record_id).first()
     if not medical_record:
@@ -807,6 +1048,48 @@ async def create_lab_report(
             attachment=attachment_path,
         )
         db.add(lab_report)
+        db.commit()
+        db.refresh(lab_report)
+        return lab_report
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.put("/emr/update-lab-report/{report_id}")
+async def update_lab_report(
+    report_id: str,
+    lab_note: str = Form(None),
+    staff_id: str = Form(None),
+    lab_id: str = Form(None),
+    attachment: Optional[UploadFile] = File(None),
+    user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.user_type != 3:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
+    # Check if the lab report exists
+    lab_report = db.query(LabReport).filter(LabReport.report_id == report_id).first()
+    if not lab_report:
+        raise HTTPException(status_code=404, detail="Lab report not found")
+
+    try:
+        # Update the lab report details if provided
+        if lab_note is not None:
+            lab_report.lab_note = lab_note
+        if staff_id is not None:
+            lab_report.staff_id = staff_id
+        if lab_id is not None:
+            lab_report.lab_id = lab_id
+        if attachment is not None:
+            # Save attachment if provided
+            save_dir = "attachments"
+            os.makedirs(save_dir, exist_ok=True)
+            file_location = f"{save_dir}/{report_id}_{attachment.filename}"
+            with open(file_location, "wb") as file_object:
+                shutil.copyfileobj(attachment.file, file_object)
+            lab_report.attachment = file_location
+
         db.commit()
         db.refresh(lab_report)
         return lab_report

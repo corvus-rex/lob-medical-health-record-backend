@@ -37,10 +37,10 @@ router = APIRouter()
 #GET LIST ADMIN
 @router.get("/admin/list")
 async def view_admin(
-    current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)):
     try:
-        if current_user.user_type != 1:
+        if user.user_type != 1:
             raise HTTPException(status_code=403, detail="Access forbidden")
 
         admins = db.query(Admin).all()
@@ -55,12 +55,11 @@ async def view_admin(
 @router.get("/admin/{admin_id}")
 async def get_admin_by_id(
     admin_id: str, 
-    current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        # Check if the current user is an admin
-        if current_user.user_type != 1:
+        if user.user_type != 1:
             raise HTTPException(status_code=403, detail="Access forbidden. Only admins can access this endpoint.")
 
         admin = db.query(Admin).filter(Admin.admin_id == admin_id).first()
@@ -82,12 +81,11 @@ async def update_admin(
     sex: bool = Form(None),
     address: str = Form(None),
     phone_num: int = Form(None),
-    current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        # Check if the current user is an admin
-        if current_user.user_type != 1:
+        if user.user_type != 1:
             raise HTTPException(status_code=403, detail="Access forbidden. Only admins can update admin information.")
 
         admin = db.query(Admin).filter(Admin.admin_id == admin_id).first()
@@ -122,12 +120,11 @@ async def update_admin(
 ##GET LIST PATIENT
 @router.get("/patient/list")
 async def view_patient(
-    current_user: str = Depends(get_current_user),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        # Check if the user is an admin or doctor
-        if current_user.user_type not in [1, 2]:
+        if user.user_type not in [1, 2]:
             raise HTTPException(status_code=403, detail="Access forbidden")
         
         patients = db.query(Patient).all()
@@ -142,7 +139,7 @@ async def view_patient(
 @router.get("/patient/{patient_id}")
 async def get_patient_by_id(
     patient_id: str, 
-    current_user: User = Depends(get_current_user), 
+    user: str = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     try:
@@ -152,7 +149,7 @@ async def get_patient_by_id(
             raise HTTPException(status_code=404, detail="Patient not found")
         
         # Check if the user is an admin, doctor, or the patient themselves
-        if current_user.user_type not in [1, 2] and current_user.user_id != patient.user_id:
+        if user.user_type not in [1, 2] and user.user_id != patient.user_id:
             raise HTTPException(status_code=403, detail="Access forbidden")
 
         # Fetch medical record
@@ -184,12 +181,11 @@ async def update_patient(
     alias: Optional[str] = Form(None),
     relative_phone: Optional[str] = Form(None),
     insurance_id: Optional[str] = Form(None),
-    current_user: User = Depends(get_current_user),
+    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        # Check if the user is an admin or doctor
-        if current_user.user_type not in [1, 2]:
+        if user.user_type not in [1, 2]:
             raise HTTPException(status_code=403, detail="Access forbidden")
 
         patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
@@ -220,8 +216,6 @@ async def update_patient(
         return patient
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
-
-    
 
 # REGISTER NEW INSURANCE
 @router.post("/insurance/new")

@@ -140,8 +140,8 @@ class LaboratoryStaff(Base):
 class PatientInterest(Base):
     __tablename__ = 'patient_interest'
     patient_id = Column(UUID, ForeignKey('patient.patient_id'), primary_key=True)
-    doctor_id = Column(UUID, ForeignKey('doctor.doctor_id'), primary_key=True)
-    staff_id = Column(UUID, ForeignKey('medical_staff.staff_id'), primary_key=True)
+    doctor_id = Column(UUID, ForeignKey('doctor.doctor_id'))
+    staff_id = Column(UUID, ForeignKey('medical_staff.staff_id'))
 
     patient = relationship("Patient", back_populates="interest")
     doctor = relationship("Doctor", back_populates="interest")
