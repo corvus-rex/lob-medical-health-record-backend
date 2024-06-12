@@ -35,7 +35,6 @@ router = APIRouter()
 #CREATE ADMIN
 @router.post("/admin/new")
 async def register_admin(
-    user: str = Depends(get_current_user),  
     name: str = Form(None),
     dob: int = Form(None),
     national_id: int = Form(None),
@@ -48,10 +47,6 @@ async def register_admin(
     user_name: str = Form(None),
     db=Depends(get_db)
 ):
-    # Check if the authenticated user is an admin
-    if user.user_type != 1:
-        raise HTTPException(status_code=403, detail="Only admins can create new admins")
-
     # Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
@@ -96,8 +91,8 @@ async def register_patient(
     current_user: User = Depends(get_current_user),  # Use current_user instead of user
     db: Session = Depends(get_db)  # Use Session type hint for db
 ):
-    # Ensure only admin or doctor can register a new patient
-    if current_user.user_type not in [1, 2]:
+    # Ensure only admin can register a new patient
+    if current_user.user_type not in [1]:
         raise HTTPException(status_code=403, detail="Access forbidden. Only admins and doctors can register patients.")
     
     # Check for duplicate email
@@ -185,7 +180,7 @@ async def login(
     access_token = create_access_token(
         data={"sub": user.user_email}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "user_type": user.user_type, "token_type": "bearer"}
 
 @router.get("/auth/me")
 async def verify_identity(

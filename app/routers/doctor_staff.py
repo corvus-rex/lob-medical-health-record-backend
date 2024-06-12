@@ -55,13 +55,8 @@ async def register_doctor(
     email: EmailStr = Form(None),
     password: str = Form(None),
     user_name: str = Form(None),
-    user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    
-    if user.user_type != 1:
-        raise HTTPException(status_code=403, detail="Access forbidden.")
-    
     # Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
@@ -206,12 +201,8 @@ async def register_staff(
     email: EmailStr = Form(None),
     password: str = Form(None),
     user_name: str = Form(None),
-    user: str = Depends(get_current_user),
     db=Depends(get_db)
 ):  
-    if user.user_type != 1:
-        raise HTTPException(status_code=403, detail="Access forbidden.")
-    
     ## Check for duplicate email
     existing_user = db.query(User).filter(User.user_email == email).first()
     if existing_user:
