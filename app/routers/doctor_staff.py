@@ -910,7 +910,7 @@ async def create_clinical_entry(
     user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if user.user_type != 3:
+    if user.user_type not in [1,2,3,4]:
         raise HTTPException(status_code=403, detail="Access forbidden")
     
     # Check existing medical record

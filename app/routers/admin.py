@@ -124,14 +124,23 @@ async def view_patient(
     db: Session = Depends(get_db)
 ):
     try:
-        if user.user_type not in [1, 2]:
+        if user.user_type not in [1, 2, 3]:
             raise HTTPException(status_code=403, detail="Access forbidden")
         
         patients = db.query(Patient).all()
         if not patients:
             raise HTTPException(status_code=404, detail="No patients found")
+        for p in patients:
+            record = db.query(MedicalRecord).filter(MedicalRecord.patient_id == p.patient_id).all()
+            p.medical_record = record
+            for r in record:
+                entry = db.query(ClinicalEntry).filter(ClinicalEntry.record_id == r.record_id).all()
+                note = db.query(MedicalNote).filter(MedicalNote.record_id == r.record_id).all()
+                r.clinical_entry = entry
+                r.medical_note = note
         return patients
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
