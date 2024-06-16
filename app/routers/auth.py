@@ -185,7 +185,36 @@ async def login(
 @router.get("/auth/me")
 async def verify_identity(
     user: str = Depends(get_current_user),
+    db=Depends(get_db)
 ):
+    try:
+        patient = db.query(Patient).filter(Patient.user_id == user.user_id).all()[0]
+        user.patient = [patient]
+    except Exception as e:
+        print(f"Failed to retrieve patient: {e}")
+        patient = None
+
+    try:
+        admin = db.query(Admin).filter(Admin.user_id == user.user_id).all()[0]
+        user.admin = [admin]
+    except Exception as e:
+        print(f"Failed to retrieve admin: {e}")
+        admin = None
+
+    try:
+        doctor = db.query(Doctor).filter(Doctor.user_id == user.user_id).all()[0]
+        user.doctor = [doctor]
+    except Exception as e:
+        print(f"Failed to retrieve doctor: {e}")
+        doctor = None
+
+    try:
+        staff = db.query(MedicalStaff).filter(MedicalStaff.user_id == user.user_id).all()[0]
+        user.medical_staff = [staff]
+    except Exception as e:
+        print(f"Failed to retrieve medical staff: {e}")
+        staff = None
+
     return user
 
 
